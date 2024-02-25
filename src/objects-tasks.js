@@ -151,8 +151,30 @@ function makeWord(lettersObject) {
  *    sellTickets([25, 25, 50]) => true
  *    sellTickets([25, 100]) => false (The seller does not have enough money to give change.)
  */
-function sellTickets(/* queue */) {
-  throw new Error('Not implemented');
+function sellTickets(queue) {
+  const cash = { 25: 0, 50: 0, 100: 0 };
+
+  return queue.every((money) => {
+    if (money === 25) {
+      cash[25] += 1;
+    } else if (money === 50) {
+      cash[25] -= 1;
+      cash[50] += 1;
+    } else if (money === 100) {
+      if (cash[50] >= 1 && cash[25] >= 1) {
+        cash[50] -= 1;
+        cash[25] -= 1;
+      } else if (cash[50] === 0 && cash[25] >= 3) {
+        cash[25] -= 3;
+      } else {
+        return false;
+      }
+
+      cash[100] += 1;
+    }
+
+    return cash[25] > 0;
+  });
 }
 
 /**
@@ -168,8 +190,12 @@ function sellTickets(/* queue */) {
  *    console.log(r.height);      // => 20
  *    console.log(r.getArea());   // => 200
  */
-function Rectangle(/* width, height */) {
-  throw new Error('Not implemented');
+function Rectangle(width, height) {
+  this.width = width;
+  this.height = height;
+  this.getArea = () => {
+    return this.width * this.height;
+  };
 }
 
 /**
@@ -182,8 +208,8 @@ function Rectangle(/* width, height */) {
  *    [1,2,3]   =>  '[1,2,3]'
  *    { width: 10, height : 20 } => '{"height":10,"width":20}'
  */
-function getJSON(/* obj */) {
-  throw new Error('Not implemented');
+function getJSON(obj) {
+  return JSON.stringify(obj);
 }
 
 /**
@@ -197,8 +223,8 @@ function getJSON(/* obj */) {
  *    const r = fromJSON(Circle.prototype, '{"radius":10}');
  *
  */
-function fromJSON(/* proto, json */) {
-  throw new Error('Not implemented');
+function fromJSON(proto, json) {
+  return Object.assign(Object.create(proto), JSON.parse(json));
 }
 
 /**
@@ -227,8 +253,16 @@ function fromJSON(/* proto, json */) {
  *      { country: 'Russia',  city: 'Saint Petersburg' }
  *    ]
  */
-function sortCitiesArray(/* arr */) {
-  throw new Error('Not implemented');
+function sortCitiesArray(arr) {
+  function byField(field) {
+    return (a, b) => (a[field] > b[field] ? 1 : -1);
+  }
+
+  const copyArr = [...arr];
+
+  return copyArr.sort((a, b) =>
+    a.country !== b.country ? byField('country')(a, b) : byField('city')(a, b)
+  );
 }
 
 /**
@@ -261,8 +295,21 @@ function sortCitiesArray(/* arr */) {
  *    "Poland" => ["Lodz"]
  *   }
  */
-function group(/* array, keySelector, valueSelector */) {
-  throw new Error('Not implemented');
+function group(array, keySelector, valueSelector) {
+  const result = new Map();
+
+  array.forEach((country) => {
+    const key = keySelector(country);
+    const value = valueSelector(country);
+
+    if (!result.has(key)) {
+      result.set(key, [value]);
+    } else {
+      result.get(key).push(value);
+    }
+  });
+
+  return result;
 }
 
 /**
@@ -319,33 +366,134 @@ function group(/* array, keySelector, valueSelector */) {
  *  For more examples see unit tests.
  */
 
+class Selector {
+  constructor() {
+    this.selector = '';
+    this.hasElement = false;
+    this.hasId = false;
+    this.hasPseudoElement = false;
+    this.order = 0;
+  }
+
+  element(value) {
+    if (this.hasElement) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more then one time inside the selector'
+      );
+    }
+
+    if (this.order > 1)
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    this.selector += value;
+    this.hasElement = true;
+    this.order = 1;
+
+    return this;
+  }
+
+  id(value) {
+    if (this.hasId) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more then one time inside the selector'
+      );
+    }
+
+    if (this.order > 2)
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    this.selector += `#${value}`;
+    this.hasId = true;
+    this.order = 2;
+    return this;
+  }
+
+  class(value) {
+    if (this.order > 3)
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    this.selector += `.${value}`;
+    this.order = 3;
+    return this;
+  }
+
+  attr(value) {
+    if (this.order > 4)
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    this.selector += `[${value}]`;
+    this.order = 4;
+    return this;
+  }
+
+  pseudoClass(value) {
+    if (this.order > 5)
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    this.selector += `:${value}`;
+    this.order = 5;
+    return this;
+  }
+
+  pseudoElement(value) {
+    if (this.hasPseudoElement) {
+      throw new Error(
+        'Element, id and pseudo-element should not occur more then one time inside the selector'
+      );
+    }
+
+    if (this.order > 6)
+      throw new Error(
+        'Selector parts should be arranged in the following order: element, id, class, attribute, pseudo-class, pseudo-element'
+      );
+    this.selector += `::${value}`;
+    this.hasPseudoElement = true;
+    this.order = 6;
+    return this;
+  }
+
+  combine(selector1, combinator, selector2) {
+    this.selector = `${selector1.stringify()} ${combinator} ${selector2.stringify()}`;
+    return this;
+  }
+
+  stringify() {
+    return this.selector;
+  }
+}
+
 const cssSelectorBuilder = {
-  element(/* value */) {
-    throw new Error('Not implemented');
+  element(value) {
+    return new Selector().element(value);
   },
 
-  id(/* value */) {
-    throw new Error('Not implemented');
+  id(value) {
+    return new Selector().id(value);
   },
 
-  class(/* value */) {
-    throw new Error('Not implemented');
+  class(value) {
+    return new Selector().class(value);
   },
 
-  attr(/* value */) {
-    throw new Error('Not implemented');
+  attr(value) {
+    return new Selector().attr(value);
   },
 
-  pseudoClass(/* value */) {
-    throw new Error('Not implemented');
+  pseudoClass(value) {
+    return new Selector().pseudoClass(value);
   },
 
-  pseudoElement(/* value */) {
-    throw new Error('Not implemented');
+  pseudoElement(value) {
+    return new Selector().pseudoElement(value);
   },
 
-  combine(/* selector1, combinator, selector2 */) {
-    throw new Error('Not implemented');
+  combine(selector1, combinator, selector2) {
+    return new Selector().combine(selector1, combinator, selector2);
   },
 };
 
